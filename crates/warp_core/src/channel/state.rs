@@ -277,9 +277,10 @@ impl ChannelState {
 
     // Returns the origin url, with scheme, domain, and ports (if any)
     pub fn server_root_domain() -> Origin {
-        Url::parse(&Self::server_root_url())
-            .expect("Server root URL should be valid")
-            .origin()
+        let Ok(url) = Url::parse(&Self::server_root_url()) else {
+            return Origin::new_opaque();
+        };
+        url.origin()
     }
 
     /// Returns the rudderstack destination for all events that don't contain user-generated content.
