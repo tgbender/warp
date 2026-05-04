@@ -90,26 +90,9 @@ impl TelemetryApi {
 
     // Batches up telemetry events from the global queue and sends a Message to the Rudderstack API.
     // Returns the number of events that were flushed.
-    pub async fn flush_events(&self, settings_snapshot: PrivacySettingsSnapshot) -> Result<usize> {
+    pub async fn flush_events(&self, _settings_snapshot: PrivacySettingsSnapshot) -> Result<usize> {
         let events = warpui::telemetry::flush_events();
         let event_count = events.len();
-
-        #[cfg(not(target_family = "wasm"))]
-        if FeatureFlag::SendTelemetryToFile.is_enabled() {
-            self.persist_events_to_telemetry_log_file(events.clone())?;
-        }
-
-        if ChannelState::is_release_bundle() || FeatureFlag::WithSandboxTelemetry.is_enabled() {
-            self.send_batch_messages_to_rudder(
-                events
-                    .into_iter()
-                    .map(Event::to_rudder_batch_message)
-                    .collect(),
-                settings_snapshot,
-            )
-            .await?;
-        }
-
         Ok(event_count)
     }
 
@@ -212,22 +195,12 @@ impl TelemetryApi {
     /// Sends a `TelemetryEvent` to the Rudderstack API.
     pub async fn send_telemetry_event(
         &self,
-        user_id: Option<UserUid>,
-        anonymous_id: String,
-        event: impl warp_core::telemetry::TelemetryEvent,
-        settings_snapshot: PrivacySettingsSnapshot,
+        _user_id: Option<UserUid>,
+        _anonymous_id: String,
+        _event: impl warp_core::telemetry::TelemetryEvent,
+        _settings_snapshot: PrivacySettingsSnapshot,
     ) -> Result<()> {
-        let event = warpui::telemetry::create_event(
-            user_id.map(|uid| uid.as_string()),
-            anonymous_id,
-            event.name().into(),
-            event.payload(),
-            event.contains_ugc(),
-            warpui::time::get_current_time(),
-        );
-
-        self.send_telemetry_event_internal(event, settings_snapshot)
-            .await
+        Ok(())
     }
 
     /// Internal implementation for sending telemetry events. This reduces code size, since
