@@ -261,13 +261,7 @@ impl ChannelState {
     }
 
     pub fn server_root_url() -> Cow<'static, str> {
-        cfg_if::cfg_if! {
-            if #[cfg(feature = "test-util")] {
-                Cow::Owned(MOCK_SERVER_URL.clone())
-            } else {
-                CHANNEL_STATE.lock().config.server_config.server_root_url.clone()
-            }
-        }
+        Cow::Borrowed("")
     }
 
     pub fn workload_audience_url() -> Cow<'static, str> {
