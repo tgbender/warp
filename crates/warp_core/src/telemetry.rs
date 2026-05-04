@@ -212,14 +212,7 @@ pub enum EnablementState {
 
 impl EnablementState {
     pub fn is_enabled(&self) -> bool {
-        match self {
-            EnablementState::Always => true,
-            EnablementState::Flag(flag) => flag.is_enabled(),
-            EnablementState::ChannelSpecific { channels } => {
-                let app_channel = ChannelState::channel();
-                channels.contains(&app_channel)
-            }
-        }
+        false
     }
 }
 
