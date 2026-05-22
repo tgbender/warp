@@ -9,10 +9,7 @@ use warpui::{AppContext, Entity, SingletonEntity};
 #[cfg(not(target_family = "wasm"))]
 pub use inventory::submit;
 
-use crate::{
-    channel::{Channel, ChannelState},
-    features::FeatureFlag,
-};
+use crate::{channel::Channel, features::FeatureFlag};
 
 /// Core trait defining telemetry event behavior.
 ///
@@ -212,14 +209,7 @@ pub enum EnablementState {
 
 impl EnablementState {
     pub fn is_enabled(&self) -> bool {
-        match self {
-            EnablementState::Always => true,
-            EnablementState::Flag(flag) => flag.is_enabled(),
-            EnablementState::ChannelSpecific { channels } => {
-                let app_channel = ChannelState::channel();
-                channels.contains(&app_channel)
-            }
-        }
+        false
     }
 }
 

@@ -70,6 +70,7 @@ impl EventStore {
 
     // Register a named telemetry event
     // Create a new session if the session is stale
+    #[allow(dead_code)]
     pub(super) fn record_event(
         &mut self,
         user_id: Option<String>,
@@ -96,6 +97,7 @@ impl EventStore {
 
     // Register an Identify User telemetry event
     // Create a new session if the session is stale
+    #[allow(dead_code)]
     pub(super) fn record_identify_user_event(
         &mut self,
         user_id: String,
@@ -123,6 +125,7 @@ impl EventStore {
     // Called every time app is active
     // If session is fresh and the last event on the queue is an App Active event, collapse them
     // Else, it behaves like `record_event`
+    #[allow(dead_code)]
     pub(super) fn record_app_active(
         &mut self,
         user_id: Option<String>,
