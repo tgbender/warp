@@ -8,6 +8,7 @@ pub(crate) mod free_tier_limit_hit_modal;
 pub mod global_search;
 pub(crate) mod launch_modal;
 pub(crate) mod left_panel;
+pub mod local_agents;
 pub(crate) mod onboarding;
 pub(crate) mod openwarp_launch_modal;
 pub(crate) mod orchestration_launch_modal;
@@ -655,6 +656,7 @@ pub(crate) const LEFT_PANEL_GLOBAL_SEARCH_BINDING_NAME: &str = "workspace:left_p
 pub(crate) const LEFT_PANEL_WARP_DRIVE_BINDING_NAME: &str = "workspace:left_panel_warp_drive";
 pub(crate) const LEFT_PANEL_AGENT_CONVERSATIONS_BINDING_NAME: &str =
     "workspace:left_panel_agent_conversations";
+pub(crate) const LEFT_PANEL_LOCAL_AGENTS_BINDING_NAME: &str = "workspace:left_panel_local_agents";
 
 const KEYBINDINGS_TO_CACHE: [&str; 4] = [
     ASK_AI_ASSISTANT_KEYBINDING_NAME,
@@ -692,6 +694,12 @@ lazy_static! {
     static ref PANEL_CORNER_RADIUS: CornerRadius = CornerRadius::with_all(Radius::Pixels(8.));
     static ref PANEL_HEADER_CORNER_RADIUS: CornerRadius =
         CornerRadius::with_top(Radius::Pixels(8.));
+}
+
+pub(crate) fn fork_local_agents_mode(ctx: &AppContext) -> bool {
+    let _ = ctx;
+    // TODO: Replace this fork-local default with the product-mode flag when it lands.
+    true
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -3882,8 +3890,15 @@ impl Workspace {
                 LeftPanelDisplayedTab::GlobalSearch => ToolPanelView::GlobalSearch {
                     entry_focus: GlobalSearchEntryFocus::Results,
                 },
+                LeftPanelDisplayedTab::WarpDrive if fork_local_agents_mode(ctx) => {
+                    ToolPanelView::LocalAgents
+                }
                 LeftPanelDisplayedTab::WarpDrive => ToolPanelView::WarpDrive,
+                LeftPanelDisplayedTab::ConversationListView if fork_local_agents_mode(ctx) => {
+                    ToolPanelView::LocalAgents
+                }
                 LeftPanelDisplayedTab::ConversationListView => ToolPanelView::ConversationListView,
+                LeftPanelDisplayedTab::LocalAgents => ToolPanelView::LocalAgents,
             };
             lp.restore_active_view_from_snapshot(active_view, ctx);
             lp.set_active_pane_group(pane_group.clone(), &self.working_directories_model, ctx);
@@ -7931,6 +7946,14 @@ impl Workspace {
         explicit_user_action: bool,
         ctx: &mut ViewContext<Self>,
     ) {
+        if fork_local_agents_mode(ctx) {
+            let is_showing = self.left_panel_view.read(ctx, |left_panel, _| {
+                left_panel.active_view() == ToolPanelView::LocalAgents
+            });
+            self.toggle_left_panel_view(&LeftPanelAction::LocalAgents, toggle && is_showing, ctx);
+            return;
+        }
+
         // Closing all left panels will also close warp drive so we need to retrieve
         // whether warp drive was open first, and toggle based on the initial value.
         let was_warp_drive_open = self.current_workspace_state.is_warp_drive_open;
@@ -8021,6 +8044,10 @@ impl Workspace {
     /// Once we've done this once, we persist a preference so subsequent restarts
     /// will respect the user's visibility preference (restored from workspace state).
     fn maybe_auto_open_conversation_list(&mut self, ctx: &mut ViewContext<Self>) {
+        if fork_local_agents_mode(ctx) {
+            return;
+        }
+
         if !FeatureFlag::AgentViewConversationListView.is_enabled()
             || !AISettings::as_ref(ctx).is_any_ai_enabled(ctx)
         {
@@ -10883,6 +10910,11 @@ impl Workspace {
     }
 
     fn add_ambient_agent_tab(&mut self, ctx: &mut ViewContext<Self>) {
+        if fork_local_agents_mode(ctx) {
+            self.add_terminal_tab(false, ctx);
+            return;
+        }
+
         if !FeatureFlag::AgentView.is_enabled() || !FeatureFlag::CloudMode.is_enabled() {
             return;
         }
@@ -12899,6 +12931,12 @@ impl Workspace {
     /// This function is used when we set a selected object, which is an object open in an active pane.
     /// We do not want to focus Warp Drive, instead we want to focus the editor of the open object.
     fn view_in_warp_drive(&mut self, item_id: WarpDriveItemId, ctx: &mut ViewContext<Self>) {
+        if fork_local_agents_mode(ctx) {
+            let _ = item_id;
+            self.open_left_panel_view(&LeftPanelAction::LocalAgents, ctx);
+            return;
+        }
+
         self.open_left_panel(ctx);
         self.left_panel_view.update(ctx, |left_panel, ctx| {
             left_panel.handle_action(&LeftPanelAction::WarpDrive, ctx);
@@ -15181,6 +15219,9 @@ impl Workspace {
                     self.left_panel_view
                         .read(ctx, |left_panel, _| match target_view {
                             LeftPanelTargetView::FileTree => left_panel.is_file_tree_active(),
+                            LeftPanelTargetView::WarpDrive if fork_local_agents_mode(ctx) => {
+                                left_panel.active_view() == ToolPanelView::LocalAgents
+                            }
                             LeftPanelTargetView::WarpDrive => left_panel.is_warp_drive_active(),
                         });
 
@@ -15196,6 +15237,9 @@ impl Workspace {
                     self.left_panel_view.update(ctx, |left_panel, ctx| {
                         let action = match target_view {
                             LeftPanelTargetView::FileTree => LeftPanelAction::ProjectExplorer,
+                            LeftPanelTargetView::WarpDrive if fork_local_agents_mode(ctx) => {
+                                LeftPanelAction::LocalAgents
+                            }
                             LeftPanelTargetView::WarpDrive => LeftPanelAction::WarpDrive,
                         };
                         left_panel.handle_action_with_force_open(&action, *force_open, ctx);
@@ -17986,6 +18030,7 @@ impl Workspace {
                         ToolPanelView::GlobalSearch { .. } => "Global search",
                         ToolPanelView::WarpDrive => "Warp Drive",
                         ToolPanelView::ConversationListView => "Agent conversations",
+                        ToolPanelView::LocalAgents => "Local Agents",
                     }
                 } else {
                     "Tools panel"
@@ -18040,6 +18085,7 @@ impl Workspace {
                 ToolPanelView::GlobalSearch { .. } => "Global search",
                 ToolPanelView::WarpDrive => "Warp Drive",
                 ToolPanelView::ConversationListView => "Agent conversations",
+                ToolPanelView::LocalAgents => "Local Agents",
             }
         } else {
             "Tools panel"
@@ -21004,7 +21050,13 @@ impl Workspace {
     /// Computes the list of available left panel views based on current AI settings and feature flags.
     fn compute_left_panel_views(ctx: &AppContext) -> Vec<ToolPanelView> {
         let mut views = vec![];
-        if FeatureFlag::AgentViewConversationListView.is_enabled()
+        let fork_mode = fork_local_agents_mode(ctx);
+        if fork_mode {
+            views.push(ToolPanelView::LocalAgents);
+        }
+
+        if !fork_mode
+            && FeatureFlag::AgentViewConversationListView.is_enabled()
             && AISettings::as_ref(ctx).is_any_ai_enabled(ctx)
             && *AISettings::as_ref(ctx).show_conversation_history
         {
@@ -21022,7 +21074,7 @@ impl Workspace {
                 entry_focus: GlobalSearchEntryFocus::Results,
             });
         }
-        if WarpDriveSettings::is_warp_drive_enabled(ctx) {
+        if !fork_mode && WarpDriveSettings::is_warp_drive_enabled(ctx) {
             views.push(ToolPanelView::WarpDrive);
         }
         views
@@ -21363,6 +21415,10 @@ impl TypedActionView for Workspace {
                 environment_id,
                 entry_point,
             } => {
+                if fork_local_agents_mode(ctx) {
+                    return;
+                }
+
                 #[cfg(all(feature = "local_fs", not(target_family = "wasm")))]
                 self.start_local_to_cloud_handoff(
                     launch.clone(),
@@ -21380,6 +21436,10 @@ impl TypedActionView for Workspace {
                 conversation_id,
                 trigger,
             } => {
+                if fork_local_agents_mode(ctx) {
+                    return;
+                }
+
                 #[cfg(all(feature = "local_fs", not(target_family = "wasm")))]
                 {
                     let intent = LocalToCloudHandoffIntent::Automatic {
@@ -21719,7 +21779,9 @@ impl TypedActionView for Workspace {
                 self.current_workspace_state.is_tab_being_dragged = true;
             }
             OpenWarpDrive => {
-                if WarpDriveSettings::is_warp_drive_enabled(ctx) {
+                if fork_local_agents_mode(ctx) {
+                    self.open_left_panel_view(&LeftPanelAction::LocalAgents, ctx);
+                } else if WarpDriveSettings::is_warp_drive_enabled(ctx) {
                     self.open_left_panel_view(&LeftPanelAction::WarpDrive, ctx);
                 }
             }
@@ -23016,7 +23078,11 @@ impl TypedActionView for Workspace {
                 }
             }
             ToggleWarpDrive => {
-                if WarpDriveSettings::is_warp_drive_enabled(ctx) {
+                if fork_local_agents_mode(ctx) {
+                    let is_showing = self.left_panel_view.as_ref(ctx).active_view()
+                        == ToolPanelView::LocalAgents;
+                    self.toggle_left_panel_view(&LeftPanelAction::LocalAgents, is_showing, ctx);
+                } else if WarpDriveSettings::is_warp_drive_enabled(ctx) {
                     let is_showing =
                         self.left_panel_view.as_ref(ctx).active_view() == ToolPanelView::WarpDrive;
                     self.toggle_left_panel_view(&LeftPanelAction::WarpDrive, is_showing, ctx);
@@ -23065,7 +23131,11 @@ impl TypedActionView for Workspace {
                 }
             }
             ToggleConversationListView => {
-                if FeatureFlag::AgentViewConversationListView.is_enabled() {
+                if fork_local_agents_mode(ctx) {
+                    let is_showing = self.left_panel_view.as_ref(ctx).active_view()
+                        == ToolPanelView::LocalAgents;
+                    self.toggle_left_panel_view(&LeftPanelAction::LocalAgents, is_showing, ctx);
+                } else if FeatureFlag::AgentViewConversationListView.is_enabled() {
                     let is_showing = self.left_panel_view.as_ref(ctx).active_view()
                         == ToolPanelView::ConversationListView;
                     self.toggle_left_panel_view(

@@ -55,6 +55,7 @@ use crate::uri::browser_url_handler::update_browser_url;
 use crate::util::openable_file_type::FileTarget;
 use crate::view_components::ToastFlavor;
 use crate::workflows::workflow::Workflow;
+use crate::workspace::view::fork_local_agents_mode;
 use warp_terminal::shell::{ShellName, ShellType};
 
 use std::any::Any;
@@ -1330,25 +1331,27 @@ impl PaneGroup {
                 };
 
                 let (view, terminal_manager) = match pane_mode {
-                    PaneMode::Cloud => {
+                    PaneMode::Cloud if !fork_local_agents_mode(ctx) => {
                         Self::create_ambient_agent_terminal(resources, view_size, ctx)
                     }
-                    PaneMode::Terminal | PaneMode::Agent => PaneGroup::create_session(
-                        // Use cwd from the template iff such path exists, otherwise None
-                        // TODO(CORE-3187): On Windows, support WSL directory restoration.
-                        Some(cwd).filter(|p| p.exists()),
-                        HashMap::new(),
-                        IsSharedSessionCreator::No,
-                        resources,
-                        None,
-                        None, // no conversation restoration for launch config
-                        user_default_shell_unsupported_banner_model_handle,
-                        view_size,
-                        model_event_sender.clone(),
-                        chosen_shell,
-                        None,
-                        ctx,
-                    ),
+                    PaneMode::Cloud | PaneMode::Terminal | PaneMode::Agent => {
+                        PaneGroup::create_session(
+                            // Use cwd from the template iff such path exists, otherwise None
+                            // TODO(CORE-3187): On Windows, support WSL directory restoration.
+                            Some(cwd).filter(|p| p.exists()),
+                            HashMap::new(),
+                            IsSharedSessionCreator::No,
+                            resources,
+                            None,
+                            None, // no conversation restoration for launch config
+                            user_default_shell_unsupported_banner_model_handle,
+                            view_size,
+                            model_event_sender.clone(),
+                            chosen_shell,
+                            None,
+                            ctx,
+                        )
+                    }
                 };
 
                 let has_commands = !commands.is_empty();
@@ -1834,6 +1837,12 @@ impl PaneGroup {
                 Ok((PaneData::new(pane_id), focus))
             }
             LeafContents::AmbientAgent(snapshot) => {
+                if fork_local_agents_mode(ctx) {
+                    return Err(anyhow::anyhow!(
+                        "Ambient agent panes are disabled in fork-local mode"
+                    ));
+                }
+
                 let task_data = snapshot.task_id.map(|task_id| {
                     let task = AgentConversationsModel::handle(ctx).update(ctx, |model, ctx| {
                         model.get_or_async_fetch_task_data(&task_id, ctx)
@@ -3334,6 +3343,13 @@ impl PaneGroup {
         }
 
         if child_conversation.is_remote_child() {
+            if fork_local_agents_mode(ctx) {
+                log::warn!(
+                    "Ignoring remote child agent pane restore in fork-local mode: {child_id:?}"
+                );
+                return;
+            }
+
             let Some(task_id) = child_conversation.task_id() else {
                 log::warn!(
                     "Cannot restore remote child conversation {child_id:?} without a task ID"
@@ -3768,6 +3784,19 @@ impl PaneGroup {
         pane_id: PaneId,
         ctx: &mut ViewContext<Self>,
     ) {
+        if fork_local_agents_mode(ctx) {
+            let (pane_data, _) = self.create_terminal_pane_data(
+                None,
+                HashMap::new(),
+                IsSharedSessionCreator::No,
+                None,
+                None,
+                ctx,
+            );
+            self.replace_pane(pane_id, pane_data, false, ctx);
+            return;
+        }
+
         let resources = TerminalViewResources {
             tips_completed: self.tips_completed.clone(),
             server_api: self.server_api.clone(),
@@ -3937,6 +3966,18 @@ impl PaneGroup {
                     pane_history,
                     ctx,
                 ),
+                PanesLayout::AmbientAgent if fork_local_agents_mode(ctx) => {
+                    Self::initial_single_terminal_pane(
+                        NewTerminalOptions::default(),
+                        resources,
+                        unsupported_banner_model_handle,
+                        view_bounds,
+                        model_event_sender_clone,
+                        pane_contents,
+                        pane_history,
+                        ctx,
+                    )
+                }
                 PanesLayout::AmbientAgent => Self::initial_ambient_agent_pane(
                     resources,
                     view_bounds,
@@ -4171,7 +4212,7 @@ impl PaneGroup {
         let ambient_agent_task_id =
             ambient_agent_task_id.or_else(|| Self::ambient_agent_task_id(&cloud_conversation));
 
-        if FeatureFlag::HandoffCloudCloud.is_enabled() {
+        if FeatureFlag::HandoffCloudCloud.is_enabled() && !fork_local_agents_mode(ctx) {
             if let Some(task_id) = ambient_agent_task_id {
                 if terminal_view
                     .as_ref(ctx)
@@ -6531,7 +6572,7 @@ impl PaneGroup {
         cloud_conversation: CloudConversationData,
         ctx: &mut ViewContext<Self>,
     ) -> bool {
-        if FeatureFlag::HandoffCloudCloud.is_enabled() {
+        if FeatureFlag::HandoffCloudCloud.is_enabled() && !fork_local_agents_mode(ctx) {
             if let Some(task_id) = Self::ambient_agent_task_id(&cloud_conversation) {
                 return self.replace_loading_pane_with_restored_ambient_cloud_mode_pane(
                     loading_pane_id,
