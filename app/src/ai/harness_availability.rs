@@ -18,6 +18,7 @@ use crate::server::retry_strategies::{
     is_transient_graphql_or_http_error, OUT_OF_BAND_REQUEST_RETRY_STRATEGY,
 };
 use crate::server::server_api::ServerApiProvider;
+use crate::workspace::view::fork_local_agents_mode;
 use crate::workspaces::user_workspaces::{UserWorkspaces, UserWorkspacesEvent};
 
 const CACHE_KEY: &str = "AvailableHarnesses";
@@ -50,6 +51,18 @@ fn default_harnesses() -> Vec<HarnessAvailability> {
         enabled: true,
         available_models: vec![],
     }]
+}
+
+fn fork_local_agents_harnesses(
+    mut harnesses: Vec<HarnessAvailability>,
+) -> Vec<HarnessAvailability> {
+    for harness in &mut harnesses {
+        if harness.harness == Harness::Oz {
+            harness.enabled = false;
+            harness.available_models.clear();
+        }
+    }
+    harnesses
 }
 
 #[derive(Debug, Clone)]
@@ -90,7 +103,10 @@ pub struct HarnessAvailabilityModel {
 
 impl HarnessAvailabilityModel {
     pub fn new(ctx: &mut ModelContext<Self>) -> Self {
-        let harnesses = get_cached(ctx).unwrap_or_else(default_harnesses);
+        let mut harnesses = get_cached(ctx).unwrap_or_else(default_harnesses);
+        if fork_local_agents_mode(ctx) {
+            harnesses = fork_local_agents_harnesses(harnesses);
+        }
 
         ctx.subscribe_to_model(&NetworkStatus::handle(ctx), |me, event, ctx| {
             if let NetworkStatusEvent::NetworkStatusChanged {
@@ -285,6 +301,10 @@ impl HarnessAvailabilityModel {
     }
 
     pub fn refresh(&self, ctx: &mut ModelContext<Self>) {
+        if fork_local_agents_mode(ctx) {
+            return;
+        }
+
         // The endpoint queries `user`, which requires auth.
         if !AuthStateProvider::as_ref(ctx).get().is_logged_in() {
             return;

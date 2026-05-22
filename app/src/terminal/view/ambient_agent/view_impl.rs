@@ -646,6 +646,10 @@ impl TerminalView {
         initial_prompt: Option<String>,
         ctx: &mut ViewContext<Self>,
     ) {
+        if crate::workspace::view::fork_local_agents_mode(ctx) {
+            return;
+        }
+
         let is_nested_cloud_mode = self.is_nested_cloud_mode(ctx);
 
         // (1) If we're currently in an empty cloud mode session (setup/composing; no
@@ -705,6 +709,10 @@ impl TerminalView {
         initial_prompt: Option<String>,
         ctx: &mut ViewContext<Self>,
     ) {
+        if crate::workspace::view::fork_local_agents_mode(ctx) {
+            return;
+        }
+
         if !(FeatureFlag::CloudMode.is_enabled()
             && FeatureFlag::CloudModeFromLocalSession.is_enabled())
         {
