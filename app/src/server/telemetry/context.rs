@@ -1,29 +1,13 @@
-//! Module that builds a static context to attach to each of our events that are sent to Rudderstack.
-//! This is needed so we know the backing operating system and version of each telemetry event.
+//! Module that builds the static context attached to telemetry-shaped payloads.
+//! This fork keeps the context empty so no environment metadata is emitted.
 
 use std::sync::OnceLock;
 
-use serde::Serialize;
-use serde_json::{Value, json};
-use warp_errors::report_error;
-#[cfg(target_family = "wasm")]
-use warpui::platform::wasm;
+use serde_json::Value;
 
 use super::rudder_message::Message as RudderMessage;
-use crate::server::OperatingSystemInfo;
 
 static TELEMETRY_CONTEXT: OnceLock<TelemetryContext> = OnceLock::new();
-
-#[derive(Serialize)]
-struct TelemetryContextInfo {
-    /// Info about the operating system of the client.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    os: Option<&'static OperatingSystemInfo>,
-    /// The user agent provided by the browser, if running on Web. If not on
-    /// Web, this is always `None`.
-    #[serde(rename = "userAgent", skip_serializing_if = "Option::is_none")]
-    user_agent: Option<String>,
-}
 
 /// Newtype representing a [`Value`] with a serialized version of the context that we send to
 /// Rudderstack.
@@ -38,21 +22,7 @@ impl TelemetryContext {
 
 impl TelemetryContext {
     fn new() -> Self {
-        let context = TelemetryContextInfo {
-            os: OperatingSystemInfo::get().ok(),
-            user_agent: user_agent(),
-        };
-
-        match serde_json::to_value(context) {
-            Ok(value) => Self(value),
-            Err(e) => {
-                report_error!(
-                    anyhow::Error::new(e)
-                        .context("Failed to serialize telemetry context info to JSON value")
-                );
-                Self(json!({}))
-            }
-        }
+        Self(Value::Object(Default::default()))
     }
 }
 
@@ -78,18 +48,6 @@ impl AttachContext for RudderMessage {
             RudderMessage::Group(group) => group.context = Some(context),
             RudderMessage::Alias(alias) => alias.context = Some(context),
             RudderMessage::Batch(batch) => batch.context = Some(context),
-        }
-    }
-}
-
-/// Returns the user agent provided by the browser, if on Web. If not on Web,
-/// or if the user agent was not able to be read, returns None.
-fn user_agent() -> Option<String> {
-    cfg_if::cfg_if! {
-        if #[cfg(target_family = "wasm")] {
-            wasm::user_agent()
-        } else {
-            None
         }
     }
 }

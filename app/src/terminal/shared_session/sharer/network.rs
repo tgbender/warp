@@ -28,7 +28,7 @@ use session_sharing_protocol::common::{
     WriteToPtyFailureReason, WriteToPtyRequestId,
 };
 #[cfg(not(any(test, feature = "integration_tests")))]
-use session_sharing_protocol::common::{SelectedAgentModel, TelemetryContext};
+use session_sharing_protocol::common::SelectedAgentModel;
 #[cfg(not(any(test, feature = "integration_tests")))]
 use session_sharing_protocol::sharer::InitPayload;
 use session_sharing_protocol::sharer::{
@@ -48,8 +48,6 @@ use websocket::{Message, Sink, Stream, WebSocket, WebsocketMessage as _};
 use crate::auth::{AuthStateProvider, UserUid};
 use crate::editor::{CrdtOperation, ReplicaId};
 use crate::server::server_api::ServerApiProvider;
-#[cfg(not(any(test, feature = "integration_tests")))]
-use crate::server::telemetry::telemetry_context;
 use crate::terminal::TerminalModel;
 use crate::terminal::model::block::BlockId;
 use crate::terminal::shared_session::{
@@ -849,7 +847,7 @@ impl Network {
                         selection: network.cached_latest_state.selection.clone(),
                         init_block_id: config.init_block_id.into(),
                         input_replica_id: config.input_replica_id.into(),
-                        telemetry_context: Some(TelemetryContext(telemetry_context().as_value())),
+                        telemetry_context: None,
                         universal_developer_input_context: Some(UniversalDeveloperInputContext {
                             selected_model: Some(SelectedAgentModel::new(config.selected_model_id)),
                             ..universal_developer_input_context
