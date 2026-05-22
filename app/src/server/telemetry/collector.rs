@@ -44,93 +44,20 @@ impl TelemetryCollector {
         Self { server_api }
     }
 
-    pub fn initialize_telemetry_collection(&self, ctx: &mut ModelContext<TelemetryCollector>) {
-        // Start a background thread to periodically flush events from the telemetry event queue.
-        if ChannelState::is_release_bundle() || FeatureFlag::WithSandboxTelemetry.is_enabled() {
-            // Flush the events to Rudderstack that were persisted into a file the last time the app was
-            // quit.
-            self.flush_persisted_events_from_disk(ctx);
-        }
-
-        // Send Active App Usage signals
-        if FeatureFlag::RecordAppActiveEvents.is_enabled()
-            && (ChannelState::is_release_bundle() || FeatureFlag::WithSandboxTelemetry.is_enabled())
-        {
-            self.schedule_send_active_usage_event(ctx);
-        }
-
-        // Start a background thread to periodically flush events from the telemetry event queue.
-        if ChannelState::is_release_bundle()
-            || FeatureFlag::WithSandboxTelemetry.is_enabled()
-            || FeatureFlag::SendTelemetryToFile.is_enabled()
-        {
-            self.schedule_event_queue_flush(ctx);
-        }
-
-        // Clear queued telemetry events when telemetry is enabled or disabled. If telemetry is
-        // enabled, we will start sending Rudderstack requests when the event queue is periodically
-        // flushed. The initial request should not contain any events recorded when the user was
-        // previously opted-out of telemetry. In the case where the user turns the telemetry from
-        // on to off, we should not send another request with any telemetry, even if the event was
-        // initially recorded prior to the user turning telemetry off.`
-        ctx.subscribe_to_model(&PrivacySettings::handle(ctx), |_me, event, _ctx| {
-            if let PrivacySettingsChangedEvent::UpdateIsTelemetryEnabled { .. } = event {
-                clear_event_queue();
-            }
-        });
+    pub fn initialize_telemetry_collection(&self, _ctx: &mut ModelContext<TelemetryCollector>) {
+        // Telemetry collection disabled.
     }
 
     /// Writes all queued but unsent telemetry telemetry events to disk so that they may be sent
     /// on the next app startup.
-    pub fn write_telemetry_events_to_disk(&self, ctx: &mut ModelContext<TelemetryCollector>) {
-        match self.server_api.persist_telemetry_events(
-            MAX_TELEMETRY_EVENTS_TO_STORE,
-            PrivacySettings::as_ref(ctx).get_snapshot(ctx),
-        ) {
-            Ok(()) => {
-                log::info!("Successfully wrote telemetry events to disk")
-            }
-            Err(e) => {
-                log::error!("Failed to write telemetry events to disk {e:#}");
-            }
-        }
+    pub fn write_telemetry_events_to_disk(&self, _ctx: &mut ModelContext<TelemetryCollector>) {
+        // Telemetry persistence disabled.
     }
 
     /// Flushes telemetry events when the app is shutting down.
     ///
-    /// Depending on the app's execution mode, this will either:
-    /// * Write events to disk, for sending on the next app startup
-    /// * Synchronously send events to rudderstack
-    pub fn flush_telemetry_events_for_shutdown(&self, ctx: &mut ModelContext<TelemetryCollector>) {
-        let execution_mode = AppExecutionMode::as_ref(ctx);
-
-        if execution_mode.send_telemetry_at_shutdown() {
-            let privacy_settings_snapshot = PrivacySettings::as_ref(ctx).get_snapshot(ctx);
-            let server_api = self.server_api.clone();
-            match warpui::r#async::block_on(async move {
-                server_api
-                    .flush_telemetry_events(privacy_settings_snapshot)
-                    .with_timeout(TELEMETRY_SHUTDOWN_FLUSH_TIMEOUT)
-                    .await
-            }) {
-                Ok(Ok(count)) => {
-                    if count > 0 {
-                        log::info!("Successfully flushed telemetry events before shutdown");
-                    }
-                }
-                Ok(Err(e)) => {
-                    report_error!(e.context("Error flushing telemetry events before shutdown"));
-                }
-                Err(_) => {
-                    log::warn!(
-                        "Telemetry flush timed out after {}s during shutdown, skipping",
-                        TELEMETRY_SHUTDOWN_FLUSH_TIMEOUT.as_secs()
-                    );
-                }
-            }
-        } else {
-            self.write_telemetry_events_to_disk(ctx);
-        }
+    /// Telemetry disabled — no-op.
+    pub fn flush_telemetry_events_for_shutdown(&self, _ctx: &mut ModelContext<TelemetryCollector>) {
     }
 
     /// Sends rudderstack requests containing events persisted to disk (if telemetry is enabled).
