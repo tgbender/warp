@@ -52,8 +52,8 @@ use crate::throttle::throttle;
 
 #[cfg(not(any(test, feature = "integration_tests")))]
 use {
-    crate::{report_error, server::telemetry::telemetry_context},
-    session_sharing_protocol::common::{Scrollback, TelemetryContext},
+    crate::report_error,
+    session_sharing_protocol::common::Scrollback,
     session_sharing_protocol::sharer::SessionSourceType,
     session_sharing_protocol::sharer::{InitPayload, Lifetime},
 };
@@ -638,7 +638,7 @@ impl Network {
                         selection,
                         init_block_id: init_block_id.into(),
                         input_replica_id: input_replica_id.into(),
-                        telemetry_context: Some(TelemetryContext(telemetry_context().as_value())),
+                        telemetry_context: None,
                         universal_developer_input_context: Some(UniversalDeveloperInputContext {
                             selected_model: Some(SelectedAgentModel::new(selected_model_id)),
                             ..universal_developer_input_context
