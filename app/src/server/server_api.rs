@@ -505,13 +505,8 @@ impl ServerApi {
     }
 
     fn create_oauth_client() -> self::auth::OAuth2Client {
-        let Ok(server_root) = Url::parse(&ChannelState::server_root_url()) else {
-            return oauth2::basic::BasicClient::new(oauth2::ClientId::new("warp-cli".to_string()))
-                .set_token_uri(oauth2::TokenUrl::new("http://localhost".to_string()).unwrap())
-                .set_device_authorization_url(
-                    oauth2::DeviceAuthorizationUrl::new("http://localhost".to_string()).unwrap(),
-                );
-        };
+        let server_root = Url::parse(&ChannelState::server_root_url())
+            .unwrap_or_else(|_| Url::parse("http://localhost").unwrap());
 
         let token_url = server_root
             .join("/api/v1/oauth/token")
