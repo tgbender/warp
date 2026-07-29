@@ -44,8 +44,8 @@ impl ChannelState {
             config: ChannelConfig {
                 app_id,
                 logfile_name: "".into(),
-                server_config: WarpServerConfig::production(),
-                oz_config: OzConfig::production(),
+                server_config: WarpServerConfig::offline(),
+                oz_config: OzConfig::offline(),
                 telemetry_config: None,
                 autoupdate_config: None,
                 crash_reporting_config: None,
@@ -272,7 +272,13 @@ impl ChannelState {
     }
 
     pub fn server_root_url() -> Cow<'static, str> {
-        Cow::Borrowed("")
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "test-util")] {
+                Cow::Owned(MOCK_SERVER_URL.clone())
+            } else {
+                CHANNEL_STATE.lock().config.server_config.server_root_url.clone()
+            }
+        }
     }
 
     pub fn workload_audience_url() -> Cow<'static, str> {

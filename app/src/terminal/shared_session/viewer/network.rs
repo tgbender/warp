@@ -20,8 +20,8 @@ use session_sharing_protocol::common::{
     RemoveGuestResponse, Role, RoleRequestId, RoleRequestResponse, Selection, SelectionUpdate,
     ServerConversationToken, SessionId, TeamAccessLevelUpdateResponse, TeamAclData,
     UniversalDeveloperInputContext, UniversalDeveloperInputContextUpdate,
-    UpdatePendingUserRoleResponse, UserID, WindowSize, WriteToPtyFailureReason, WriteToPtyRequestId,
-    WriteToPtySeqNo,
+    UpdatePendingUserRoleResponse, UserID, WindowSize, WriteToPtyFailureReason,
+    WriteToPtyRequestId, WriteToPtySeqNo,
 };
 use session_sharing_protocol::viewer::{
     DownstreamMessage, InitPayload, RoleUpdatedReason, SessionEndedReason, UpstreamMessage,
@@ -39,8 +39,8 @@ use websocket::{Message, Sink, Stream, WebsocketMessage as _};
 use crate::auth::auth_state::AuthState;
 use crate::auth::{AuthStateProvider, UserUid};
 use crate::editor::{CrdtOperation, ReplicaId};
-use crate::server::server_api::auth::AuthClient;
 use crate::server::server_api::ServerApiProvider;
+use crate::server::server_api::auth::AuthClient;
 use crate::terminal::event_listener::ChannelEventListener;
 use crate::terminal::model::block::BlockId;
 use crate::terminal::shared_session::shared_handlers::RemoteUpdateGuard;

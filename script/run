@@ -22,12 +22,22 @@ FEATURES="gui"
 INSTALL_COMMON_SKILLS=1
 FORCE_COMMON_SKILLS=0
 COMMON_SKILLS_TARGET="${WARP_COMMON_SKILLS_INSTALL_TARGET:-}"
+ALLOW_BUILD_NETWORK="${WARP_ALLOW_BUILD_NETWORK:-0}"
 
-./script/install_channel_config || echo "Skipping internal channel config installation (no repo access)."
+if [[ "${ALLOW_BUILD_NETWORK}" = "1" ]]; then
+  ./script/install_channel_config || echo "Skipping internal channel config installation (no repo access)."
+else
+  # Keep dependency acquisition and other network access separate from building.
+  export CARGO_NET_OFFLINE=true
+  export DO_NOT_TRACK=1
+  export YARN_ENABLE_NETWORK=0
+  export YARN_ENABLE_TELEMETRY=0
+  INSTALL_COMMON_SKILLS=0
+  echo "Private build mode: network access disabled (set WARP_ALLOW_BUILD_NETWORK=1 to opt in)."
+fi
 
-
-# If warp_channel_config is on PATH, build the Local channel binary; otherwise build the OSS channel.
-if command -v warp-channel-config &>/dev/null; then
+# Private builds always use the OSS channel so no internal channel configuration is loaded.
+if [[ "${ALLOW_BUILD_NETWORK}" = "1" ]] && command -v warp-channel-config &>/dev/null; then
     WARP_BIN_NAME="warp"
     WARP_CHANNEL="local"
 else

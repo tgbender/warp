@@ -17,6 +17,8 @@ use futures_util::stream::AbortHandle;
 use futures_util::{SinkExt, StreamExt};
 use instant::Instant;
 use parking_lot::FairMutex;
+#[cfg(not(any(test, feature = "integration_tests")))]
+use session_sharing_protocol::common::SelectedAgentModel;
 use session_sharing_protocol::common::{
     ActivePrompt, ActivePromptUpdate, AgentPromptFailureReason, AgentPromptRequest,
     AgentPromptRequestId, CommandExecutionFailureReason, CommandExecutionRequestId, ControlAction,
@@ -27,8 +29,6 @@ use session_sharing_protocol::common::{
     UniversalDeveloperInputContext, UniversalDeveloperInputContextUpdate, UserID, WindowSize,
     WriteToPtyFailureReason, WriteToPtyRequestId,
 };
-#[cfg(not(any(test, feature = "integration_tests")))]
-use session_sharing_protocol::common::SelectedAgentModel;
 #[cfg(not(any(test, feature = "integration_tests")))]
 use session_sharing_protocol::sharer::InitPayload;
 use session_sharing_protocol::sharer::{

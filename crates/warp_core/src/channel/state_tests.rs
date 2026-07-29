@@ -1,4 +1,25 @@
-use super::derive_http_origin_from_ws_url;
+use super::{ChannelState, derive_http_origin_from_ws_url};
+
+#[test]
+fn default_oss_state_has_no_remote_service_endpoints() {
+    let state = ChannelState::init();
+
+    assert!(state.config.server_config.server_root_url.is_empty());
+    assert!(state.config.server_config.rtc_server_url.is_empty());
+    assert!(
+        state
+            .config
+            .server_config
+            .session_sharing_server_url
+            .is_none()
+    );
+    assert!(state.config.server_config.firebase_auth_api_key.is_empty());
+    assert!(state.config.oz_config.oz_root_url.is_empty());
+    assert!(state.config.telemetry_config.is_none());
+    assert!(state.config.crash_reporting_config.is_none());
+    assert!(state.config.autoupdate_config.is_none());
+    assert!(state.config.mcp_static_config.is_none());
+}
 
 #[test]
 fn wss_becomes_https_and_strips_path() {

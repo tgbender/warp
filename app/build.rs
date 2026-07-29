@@ -239,6 +239,7 @@ fn add_features(target_family: &str, target_os: &str) {
 fn build_and_link_sentry() {
     // Ensure we re-run the build script if the target framework directory changes.
     println!("cargo:rerun-if-env-changed=FRAMEWORK_OVERRIDE");
+    println!("cargo:rerun-if-env-changed=WARP_ALLOW_BUILD_NETWORK");
 
     // If the cocoa_sentry feature is not enabled, there's nothing more to do here.
     if env::var("CARGO_FEATURE_COCOA_SENTRY").is_err() {
@@ -249,7 +250,6 @@ fn build_and_link_sentry() {
     let dir_name = env::var("FRAMEWORK_OVERRIDE").unwrap_or_else(|_| "default".to_string());
     let frameworks_dir = format!("frameworks/{dir_name}");
     let standalone = env::var("CARGO_FEATURE_STANDALONE").is_ok();
-    download_sentry_framework(&frameworks_dir, &dir_name, standalone);
 
     let sentry_dir = if standalone {
         "Sentry.xcframework"
@@ -257,6 +257,17 @@ fn build_and_link_sentry() {
         "Sentry-Dynamic-WithARM64e.xcframework"
     };
     let sentry_framework_path = format!("{frameworks_dir}/{sentry_dir}/macos-arm64_arm64e_x86_64");
+    if !Path::new(&sentry_framework_path).exists() {
+        if env::var("WARP_ALLOW_BUILD_NETWORK").as_deref() == Ok("1") {
+            download_sentry_framework(&frameworks_dir, &dir_name, standalone);
+        } else {
+            panic!(
+                "Sentry framework is not available locally and build-time network access is \
+                 disabled. Build without the cocoa_sentry feature, or explicitly set \
+                 WARP_ALLOW_BUILD_NETWORK=1."
+            );
+        }
+    }
 
     // Make sure we re-run the build script if the framework directory changes (e.g.: it gets
     // deleted).

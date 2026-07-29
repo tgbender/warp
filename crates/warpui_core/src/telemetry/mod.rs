@@ -104,3 +104,27 @@ pub fn record_app_active_event(
 pub fn flush_events() -> Vec<Event> {
     TELEMETRY.lock().events.drain(..).collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn public_recording_entry_points_are_noops() {
+        let timestamp = Utc::now();
+        let _ = flush_events();
+
+        record_event(
+            Some("user".to_owned()),
+            "anonymous".to_owned(),
+            "test event".into(),
+            None,
+            false,
+            timestamp,
+        );
+        record_identify_user_event("user".to_owned(), "anonymous".to_owned(), timestamp);
+        record_app_active_event(Some("user".to_owned()), "anonymous".to_owned(), timestamp);
+
+        assert!(flush_events().is_empty());
+    }
+}
