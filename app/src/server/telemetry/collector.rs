@@ -4,17 +4,14 @@ use std::time::Duration;
 
 use anyhow::Context;
 use chrono::{LocalResult, TimeZone, Utc};
-use warp_core::execution_mode::AppExecutionMode;
 use warp_errors::{report_error, report_if_error};
-use warpui::r#async::{FutureExt as _, Timer};
+use warpui::r#async::Timer;
 use warpui::{App, Entity, ModelContext, SingletonEntity};
 
-use super::{RUDDER_TELEMETRY_EVENTS_FILE_NAME, clear_event_queue, rudder_event_file_path};
+use super::{RUDDER_TELEMETRY_EVENTS_FILE_NAME, rudder_event_file_path};
 use crate::auth::AuthStateProvider;
-use crate::channel::ChannelState;
-use crate::features::FeatureFlag;
 use crate::server::server_api::ServerApi;
-use crate::settings::{PrivacySettings, PrivacySettingsChangedEvent};
+use crate::settings::PrivacySettings;
 
 // How often we send Active Usage signals.
 const ACTIVE_USAGE_DURATION: Duration = Duration::from_secs(60);
@@ -25,10 +22,6 @@ const TELEMETRY_FLUSH_DURATION: Duration = Duration::from_secs(30);
 /// Max telemetry events to write to disk. This is bounded to limit the size of the file as well
 /// as latency of writing the file.
 const MAX_TELEMETRY_EVENTS_TO_STORE: usize = 20;
-
-/// Maximum time to wait for the telemetry flush network request during shutdown.
-/// If the network is unavailable or slow, we don't want the CLI process to hang indefinitely.
-const TELEMETRY_SHUTDOWN_FLUSH_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// App singleton responsible for scheduling periodic background tasks for sending batches of
 /// telemetry events to Rudderstack.  This model respects the user's telemetry enablement setting.

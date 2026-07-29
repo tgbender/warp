@@ -6,7 +6,24 @@ use warp_server_auth::auth_state::AuthState;
 use warp_server_auth::credentials::{AuthToken, Credentials, LoginToken};
 use warp_server_auth::user::FirebaseAuthTokens;
 
-use super::AuthSession;
+use super::{AuthSession, oauth_server_root};
+
+#[test]
+fn oauth_server_root_falls_back_to_loopback_when_cloud_is_disabled() {
+    assert_eq!(
+        oauth_server_root("").as_str(),
+        "http://localhost/",
+        "an empty offline server root must not recover a cloud endpoint"
+    );
+}
+
+#[test]
+fn oauth_server_root_preserves_explicit_local_overrides() {
+    assert_eq!(
+        oauth_server_root("http://127.0.0.1:8080").as_str(),
+        "http://127.0.0.1:8080/"
+    );
+}
 
 fn session_with_state(
     auth_state: Arc<AuthState>,

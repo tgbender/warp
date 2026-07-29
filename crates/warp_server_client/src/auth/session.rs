@@ -19,6 +19,10 @@ use super::UserAuthenticationError;
 
 const FETCH_ACCESS_TOKEN_TIMEOUT: Duration = Duration::from_secs(5);
 
+fn oauth_server_root(server_root: &str) -> Url {
+    Url::parse(server_root).unwrap_or_else(|_| Url::parse("http://localhost").unwrap())
+}
+
 /// Authentication and authenticated-transport conditions observed by shared client code.
 #[derive(Clone)]
 pub enum AuthEvent {
@@ -196,8 +200,7 @@ impl AuthSession {
     }
 
     fn create_oauth_client() -> OAuth2Client {
-        let server_root =
-            Url::parse(&ChannelState::server_root_url()).expect("Server root URL must be valid");
+        let server_root = oauth_server_root(&ChannelState::server_root_url());
         let token_url = server_root
             .join("/api/v1/oauth/token")
             .expect("Invalid token URL");

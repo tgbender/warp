@@ -504,23 +504,6 @@ impl ServerApi {
             .await
     }
 
-    fn create_oauth_client() -> self::auth::OAuth2Client {
-        let server_root = Url::parse(&ChannelState::server_root_url())
-            .unwrap_or_else(|_| Url::parse("http://localhost").unwrap());
-
-        let token_url = server_root
-            .join("/api/v1/oauth/token")
-            .unwrap_or_else(|_| server_root.clone());
-
-        let device_url = server_root
-            .join("/api/v1/oauth/device/auth")
-            .unwrap_or_else(|_| server_root.clone());
-
-        oauth2::basic::BasicClient::new(oauth2::ClientId::new("warp-cli".to_string()))
-            .set_token_uri(oauth2::TokenUrl::from_url(token_url))
-            .set_device_authorization_url(oauth2::DeviceAuthorizationUrl::from_url(device_url))
-    }
-
     pub fn send_graphql_request<'a, QF, O: warp_graphql::client::Operation<QF> + Send + 'a>(
         &'a self,
         operation: O,
