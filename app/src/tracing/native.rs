@@ -70,7 +70,7 @@ use warpui::AppContext;
 
 use super::Initialization;
 use super::cloud_agent_auth::{self, AuthContext};
-use crate::channel::ChannelState;
+use crate::channel::{Channel, ChannelState};
 use crate::tracing::install_no_subscriber;
 
 /// The tag used to mark spans related to cloud agents, which we use to filter out
@@ -97,6 +97,11 @@ static AUTH_CONTEXT: OnceLock<AuthContext> = OnceLock::new();
 /// is installed so tracing instrumentation remains safe without producing output or partially
 /// initializing export.
 pub fn init() -> anyhow::Result<Initialization> {
+    if ChannelState::channel() == Channel::Oss {
+        install_no_subscriber()?;
+        return Ok(Initialization::default());
+    }
+
     // INFO is the default because this is a global subscriber and DEBUG-level application spans
     // would otherwise create substantial work even though only marked cloud-agent spans are
     // exported. RUST_LOG can still override this when deeper tracing is needed.
